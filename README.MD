@@ -23,7 +23,8 @@ Presidio _(Origin from Latin praesidium ‘protection, garrison’)_ helps to en
 
 ### :test_tube: [Local Cmds](cmds.md)
 
-### :bulb: [Supported Entities](supported_entities.md)
+### :bulb: [Supported Entities1](docs/supported_entities.md)
+### :bulb: [Supported Entities2](supported_entities.md)
 
 ### :blue_book: [Full documentation](https://microsoft.github.io/presidio)
 

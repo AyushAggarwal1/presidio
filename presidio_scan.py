@@ -256,8 +256,8 @@ def enrich_entities_with_positions(analysis_results: list, text: str) -> list:
 
 def enrich_entities_with_metadata(analysis_results: list) -> list:
     """
-    Add metadata (title, description, category, domain, severity, recommended_action, link)
-    to each entity under the 'metadata' key, based on entity_type.
+    Merge metadata (title, description, category, domain, severity, recommended_action, link)
+    into each entity dict based on entity_type.
     """
     if not isinstance(analysis_results, list):
         return analysis_results
@@ -268,7 +268,9 @@ def enrich_entities_with_metadata(analysis_results: list) -> list:
             continue
         ent_with_meta = dict(ent)
         entity_type = ent_with_meta.get("entity_type")
-        ent_with_meta["metadata"] = get_entity_metadata(entity_type)
+        meta = get_entity_metadata(entity_type)
+        # Merge metadata fields at top-level of each entity
+        ent_with_meta.update(meta)
         enriched.append(ent_with_meta)
     return enriched
 
@@ -303,12 +305,10 @@ def process_file(
 
     # Enrich entities with line/column positions
     analysis_results_with_positions = enrich_entities_with_positions(analysis_results, text)
-    # Attach entity metadata
-    analysis_results_with_positions = enrich_entities_with_metadata(analysis_results_with_positions)
+    # Merge entity metadata inline
+    analysis_results_final = enrich_entities_with_metadata(analysis_results_with_positions)
 
-    anonymized_results = anonymize_with_api(
-        text, analyzer_results=analysis_results, anonymize_url=anonymize_url
-    )
+    # Note: Example desired format does not include anonymized_result
 
     entity_count = len(analysis_results) if isinstance(analysis_results, list) else 0
     entities_found = (
@@ -321,8 +321,7 @@ def process_file(
         "file_path": file_path,
         "timestamp": datetime.now().isoformat(),
         "input_text": text,
-        "analysis_results_with_positions": analysis_results_with_positions,
-        "anonymized_result": anonymized_results,
+        "analysis_results": analysis_results_final,
         "entity_count": entity_count,
         "entities_found": entities_found,
         "status": "success",
