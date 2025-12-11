@@ -138,13 +138,23 @@ class Server:
 
 
 def _exclude_attributes_from_dto(recognizer_result_list):
-    excluded_attributes = [
-        "recognition_metadata",
-    ]
-    for result in recognizer_result_list:
-        for attr in excluded_attributes:
-            if hasattr(result, attr):
-                delattr(result, attr)
+    # excluded_attributes = [
+    #     "recognition_metadata",
+    # ]
+    # for result in recognizer_result_list:
+    #     for attr in excluded_attributes:
+    #         if hasattr(result, attr):
+    #             delattr(result, attr)
+
+    # @ayushaggarwal1: Keeping recognition_metadata for now.
+    """
+    Historically this function removed some attributes from the response
+    to keep the payload small. We now keep `recognition_metadata` so that
+    clients (e.g. `presidio_scan.py`) can inspect which recognizer produced
+    each result.
+    """
+    # No-op for now; kept for backwards compatibility / future use.
+    return recognizer_result_list
 
 
 def create_app():  # noqa: D103
