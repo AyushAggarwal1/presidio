@@ -138,13 +138,23 @@ class Server:
 
 
 def _exclude_attributes_from_dto(recognizer_result_list):
-    excluded_attributes = [
-        "recognition_metadata",
-    ]
-    for result in recognizer_result_list:
-        for attr in excluded_attributes:
-            if hasattr(result, attr):
-                delattr(result, attr)
+# @ayushaggarwal1: Keeping recognition_metadata for now.
+# excluded_attributes = [
+    #     "recognition_metadata",
+    # ]
+    # for result in recognizer_result_list:
+    #     for attr in excluded_attributes:
+    #         if hasattr(result, attr):
+    #             delattr(result, attr)
+
+    # @ayushaggarwal1: Keeping recognition_metadata for now.
+    """
+   returns "recognition_metadata": {
+            "recognizer_identifier": "EmailRecognizer_135895316592352",
+            "recognizer_name": "EmailRecognizer"
+          }
+    """
+    return recognizer_result_list
 
 
 def create_app():  # noqa: D103
