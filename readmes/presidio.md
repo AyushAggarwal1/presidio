@@ -8,3 +8,5 @@ Presidio _(Origin from Latin praesidium ‘protection, garrison’)_ helps to en
 - :bulb: [Supported Entities2](supported-entities-2.md)
 
 - Metadata of Supported Entities used for enrichment [Entity Metadata](../metadata/entity_metadata.py)
+
+- Sample Output Json [sample-json](sample-schema-1.json)

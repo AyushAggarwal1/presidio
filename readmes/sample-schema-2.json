@@ -1,0 +1,70 @@
+{
+  "scan_type": "PII_DISCOVERY",
+  "timestamp": "2025-12-13T10:42:11Z",
+  "status": "COMPLETED",
+  "source": {
+    "provider": "MICROSOFT",
+    "service": "ONEDRIVE",
+    "account_id": "tenant-uuid",
+    "region": "GLOBAL"
+  },
+  "scan_scope": {
+    "total_locations_scanned": 9,
+    "locations": [
+      "onedrive://Finance/payroll.xlsx",
+      "onedrive://HR/employees.csv",
+      "onedrive://Legal/contracts.pdf"
+    ]
+  },
+  "summary": {
+    "total_entities_found": 27,
+    "unique_entity_types": [
+      "AU_ABN",
+      "EMAIL_ADDRESS",
+      "PHONE_NUMBER"
+    ]
+  },
+  "results": [
+    {
+      "location": "onedrive://Finance/payroll.xlsx",
+      "source_type": "xlsx",
+      "location_metadata": {
+        "size_bytes": 204812,
+        "last_modified": "2025-12-10T14:20:55Z",
+        "owner": "finance@company.com",
+        "sensitivity_label": "NONE"
+      },
+      "analysis_summary": {
+        "total_entities_found": 1,
+        "entities_found": [
+          "AU_ABN"
+        ]
+      },
+      "analysis_results": [
+        {
+          "entity_type": "AU_ABN",
+          "start": 165,
+          "end": 176,
+          "score": 1.0,
+          "secret_found": "***********",
+          "analysis_explanation": {
+            "recognizer": "AuAbnRecognizer",
+            "pattern_name": "ABN (Low)",
+            "pattern": "\\b\\d{11}\\b",
+            "score": 1.0,
+            "regex_flags": 26,
+            "original_score": 0.01,
+            "score_context_improvement": 0.99,
+            "supportive_context_word": "abn",
+            "textual_explanation": "Detected by AuAbnRecognizer using ABN (Low) pattern",
+            "validation_result": true
+          },
+          "recognition_metadata": {
+            "recognizer_identifier": "AuAbnRecognizer_137485405774784",
+            "recognizer_name": "AuAbnRecognizer"
+          }
+        }
+      ]
+    }
+  ]
+}
