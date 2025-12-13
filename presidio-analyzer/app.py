@@ -139,7 +139,7 @@ class Server:
 
 def _exclude_attributes_from_dto(recognizer_result_list):
 # @ayushaggarwal1: Keeping recognition_metadata for now.
-# excluded_attributes = [
+    # excluded_attributes = [
     #     "recognition_metadata",
     # ]
     # for result in recognizer_result_list:
