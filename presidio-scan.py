@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 import os
 import sys
 from datetime import datetime, timezone
@@ -12,6 +13,7 @@ import requests
 from metadata.entity_metadata import get_entity_metadata
 
 ANALYZE_URL_DEFAULT = "http://localhost:5002/analyze"
+logger = logging.getLogger(__name__)
 
 
 # Optional dependencies
@@ -138,6 +140,30 @@ def to_serializable_metadata(meta: Optional[object]) -> Optional[Dict]:
         return None
 
 
+def make_relative(path: str, base: str) -> str:
+    """Return a path relative to base, fallback to original on error."""
+    try:
+        return os.path.relpath(path, base)
+    except Exception:  # noqa: BLE001
+        return path
+
+
+def relativize_results(results: List[Dict], base: str) -> List[str]:
+    """Rewrite result['location'] to be relative to base and return locations."""
+    locations: List[str] = []
+    for res in results:
+        if not isinstance(res, dict):
+            continue
+        loc = res.get("location")
+        if isinstance(loc, str):
+            rel = make_relative(loc, base)
+            res["location"] = rel
+            locations.append(rel)
+        elif loc is not None:
+            locations.append(loc)
+    return locations
+
+
 def build_error_result(location: str, source_type: str, error_message: str) -> Dict:
     """Standard error result block for a single file."""
     return {
@@ -163,12 +189,13 @@ def analyze_text(text: str, language: str, analyze_url: str) -> Dict:
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as exc:
+        logger.error("Analyzer API request failed", exc_info=exc)
         return {"error": f"Analyzer API request failed: {exc}"}
 
 
 def enrich_results_with_metadata(results: List[Dict]) -> List[Dict]:
     """Attach entity metadata (title, description, severity, etc.) to each result."""
-    # 
+    
     # @ayushaggarwal1: used to enrich the results with metadata.(entity_metadata.py)
     # enriched: List[Dict] = []
     # for ent in results:
@@ -202,6 +229,7 @@ def process_image(path: str, language: str) -> Dict:
     source_type = "image"
 
     if Image is None or ImageAnalyzerEngine is None:
+        logger.error("Image dependencies missing")
         return build_error_result(
             path,
             source_type,
@@ -211,6 +239,7 @@ def process_image(path: str, language: str) -> Dict:
     try:
         image = Image.open(path)
     except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to open image", extra={"path": path}, exc_info=exc)
         return build_error_result(path, source_type, f"Failed to open image: {exc}")
 
     engine = ImageAnalyzerEngine()
@@ -245,6 +274,7 @@ def process_image(path: str, language: str) -> Dict:
             analyzer_result, ocr_result, ocr_text, allow_list
         )
     except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to analyze image", extra={"path": path}, exc_info=exc)
         return build_error_result(path, source_type, f"Failed to analyze image: {exc}")
 
     analyzer_lookup = {
@@ -301,12 +331,17 @@ def process_text_source(
     source_type = infer_source_type(path)
     analysis = analyze_text(text, language=language, analyze_url=analyze_url)
     if isinstance(analysis, dict) and "error" in analysis:
+        logger.error(
+            "Analyzer error for text source",
+            extra={"path": path, "error": analysis.get("error")},
+        )
         err = build_error_result(path, source_type, analysis["error"])
         err["analysis_error"] = analysis
         return err
 
     if not isinstance(analysis, list):
         # Unexpected format from API
+        logger.error("Unexpected analyzer response format", extra={"path": path})
         return build_error_result(path, source_type, "Unexpected analyzer response format.")
 
     enriched = enrich_results_with_metadata(analysis)
@@ -348,6 +383,7 @@ def process_text_source(
 def process_file(path: str, language: str, analyze_url: str) -> Dict:
     """Detect file type and route to the appropriate processing pipeline."""
     abs_path = os.path.abspath(path)
+    logger.info("Processing file %s", abs_path)
 
     # Images
     if is_image(abs_path):
@@ -357,6 +393,7 @@ def process_file(path: str, language: str, analyze_url: str) -> Dict:
     if is_pdf(abs_path):
         pdf_text, pdf_err = extract_pdf_text(abs_path)
         if pdf_err is not None:
+            logger.error("PDF extract failed", extra={"path": abs_path, "error": pdf_err})
             return build_error_result(abs_path, "pdf", pdf_err)
         return process_text_source(
             abs_path,
@@ -368,6 +405,7 @@ def process_file(path: str, language: str, analyze_url: str) -> Dict:
     # Fallback: treat as text
     text, read_err = read_text_file(abs_path)
     if read_err is not None:
+        logger.error("Read text failed", extra={"path": abs_path, "error": read_err})
         return build_error_result(abs_path, infer_source_type(abs_path), read_err)
 
     return process_text_source(
@@ -392,6 +430,7 @@ def scan_path(path: str, recursive: bool, language: str, analyze_url: str) -> Di
         .replace("+00:00", "Z")
     )
     results: List[Dict] = []
+    base_dir = abs_path if os.path.isdir(abs_path) else os.path.dirname(abs_path) or abs_path
 
     if os.path.isfile(abs_path):
         # Single file
@@ -403,6 +442,7 @@ def scan_path(path: str, recursive: bool, language: str, analyze_url: str) -> Di
             try:
                 entries = [os.path.join(abs_path, e) for e in os.listdir(abs_path)]
             except OSError as exc:  # noqa: BLE001
+                logger.error("Failed to list directory", extra={"path": abs_path}, exc_info=exc)
                 return {
                     "scan_type": "data-security",
                     "timestamp": timestamp,
@@ -422,6 +462,7 @@ def scan_path(path: str, recursive: bool, language: str, analyze_url: str) -> Di
                 file_path = os.path.join(dirpath, name)
                 res = process_file(file_path, language=language, analyze_url=analyze_url)
                 results.append(res)
+                logger.debug("File processed", extra={"path": file_path})
     else:
         return {
             "scan_type": "data-security",
@@ -433,11 +474,7 @@ def scan_path(path: str, recursive: bool, language: str, analyze_url: str) -> Di
             "error": f"Path not found or invalid: {abs_path}",
         }
 
-    locations = [
-        r.get("location")
-        for r in results
-        if isinstance(r, dict) and r.get("location")
-    ]
+    locations = relativize_results(results, base_dir)
     total_entities = sum(
         r.get("analysis_summary", {}).get("total_entities_found", 0)
         for r in results
@@ -531,5 +568,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+    )
     main()
 
