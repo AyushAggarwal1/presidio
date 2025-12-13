@@ -1,0 +1,63 @@
+FROM python:3.13-slim
+
+ENV PIP_NO_CACHE_DIR=1
+ENV POETRY_VIRTUALENVS_CREATE=false
+ENV WORKERS=1
+
+WORKDIR /app
+
+# System dependencies needed by analyzer, anonymizer, image-redactor and scan
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    tesseract-ocr \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy service source trees
+COPY presidio-analyzer /app/presidio-analyzer
+COPY presidio-anonymizer /app/presidio-anonymizer
+COPY presidio-image-redactor /app/presidio-image-redactor
+
+# Copy scanner script and its metadata/deps
+COPY metadata /app/metadata
+COPY presidio-scan.py /app/presidio-scan.py
+COPY requirements.txt /app/requirements.txt
+
+# Install Poetry once, reuse for all services
+RUN pip install poetry
+
+# ---- Install analyzer dependencies + NLP models ----
+WORKDIR /app/presidio-analyzer
+RUN poetry install --no-root --only=main -E server \
+    && poetry run python install_nlp_models.py --conf_file presidio_analyzer/conf/default.yaml
+
+# ---- Install anonymizer dependencies ----
+WORKDIR /app/presidio-anonymizer
+RUN poetry install --no-root --only=main -E server
+
+# ---- Install image-redactor dependencies ----
+WORKDIR /app/presidio-image-redactor
+RUN poetry install --no-root --only=main -E server \
+    && python -m spacy download en_core_web_lg
+
+# ---- Install scanner dependencies (PyPDF2, Pillow, etc.) ----
+WORKDIR /app
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Non-root user
+RUN useradd -m -u 1000 presidio && chown -R presidio:presidio /app
+USER 1000
+
+# Expose the three service ports
+EXPOSE 5001 5002 5003
+
+# Copy multi-service entrypoint and ensure it's executable
+COPY --chmod=0755 entrypoint-all.sh /app/entrypoint-all.sh
+
+ENTRYPOINT ["/app/entrypoint-all.sh"]
+CMD ["services"]
+
+

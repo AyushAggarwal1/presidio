@@ -50,6 +50,24 @@ services:
     ports:
       - "5003:5001"
 
+  presidio-scan:
+    image: ${REGISTRY_NAME}/${IMAGE_PREFIX}presidio-scan${TAG}
+    build:
+      context: .
+      dockerfile: Dockerfile.presidio-scan
+      cache_from:
+        - type=registry,ref=${REGISTRY_NAME}/${IMAGE_PREFIX}presidio-scan:latest
+    environment:
+      # Point the scanner at the analyzer service inside the compose network
+      - ANALYZE_URL=http://presidio-analyzer:5001/analyze
+    ports:
+      - "5004:5001"
+    depends_on:
+      - presidio-analyzer
+      - presidio-image-redactor
+    # Example command; adjust scan path / arguments as needed
+    command: ["/bin/bash"]
+
 volumes:
   ollama-data:
   

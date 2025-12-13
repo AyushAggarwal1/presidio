@@ -1,4 +1,6 @@
-SUPPORTED_ENTITIES = [
+Supported Entites
+```sh
+[
     "ABA_ROUTING_NUMBER",
     "AGE",
     "AU_ABN",
@@ -47,7 +49,9 @@ SUPPORTED_ENTITIES = [
     "US_PASSPORT",
     "US_SSN",
 ]
+```
 
+Entities with Recognizers
 ```json
 {
   "entities": {
@@ -203,7 +207,11 @@ SUPPORTED_ENTITIES = [
     "US_SSN": [
       "UsSsnRecognizer"
     ]
-  },
+  }
+```
+
+Base Recognizers
+```json  
   "detectors": {
     "EsNieRecognizer": {
       "class": "EsNieRecognizer",

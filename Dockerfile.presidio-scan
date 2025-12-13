@@ -1,0 +1,26 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System deps (optional: for Pillow/spacy etc)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency definitions and install
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy the rest of the source, including presidio-scan.py
+# COPY . /app
+COPY metadata /app/metadata
+COPY presidio-scan.py /app/presidio-scan.py
+
+
+# Default analyzer URL inside the compose network
+ENV ANALYZE_URL=http://presidio-analyzer:5001/analyze
+
+# Default command – override in docker-compose if desired
+CMD ["/bin/bash"]
+
+
