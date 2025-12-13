@@ -14,6 +14,7 @@ start_services() {
     cd /app/presidio-analyzer
     PORT=5002 WORKERS="${WORKERS:-1}" ./entrypoint.sh
   ) &
+  ANALYZER_PID=$!
   echo ANALYZER_PID=$!
 
   # Anonymizer on 5001
@@ -21,6 +22,7 @@ start_services() {
     cd /app/presidio-anonymizer
     PORT=5001 WORKERS="${WORKERS:-1}" ./entrypoint.sh
   ) &
+  ANON_PID=$!
   echo ANON_PID=$!
 
   # Image redactor on 5003
@@ -28,6 +30,7 @@ start_services() {
     cd /app/presidio-image-redactor
     PORT=5003 WORKERS="${WORKERS:-1}" ./entrypoint.sh
   ) &
+  IMG_PID=$!
   echo IMG_PID=$!
 }
 
