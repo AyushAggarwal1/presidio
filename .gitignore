@@ -1,7 +1,6 @@
 /local_scripts/*
 /scan-entities/*
 /scan-results/*
-/testing-scripts/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
