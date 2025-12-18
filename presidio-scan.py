@@ -221,7 +221,7 @@ def summarize_entities(results: List[Dict]) -> Tuple[int, List[str]]:
 
 
 # ---------------------------------------------------------------------------
-# LLM Validation Integration (Always-On)
+# LLM Validation Integration
 # ---------------------------------------------------------------------------
 
 
@@ -247,8 +247,8 @@ def apply_llm_validation(
             detection["llm_validation"] = {
                 "is_true_positive": None,
                 "confidence": None,
-                "reasoning": "LLM validation unavailable (API key not configured)",
-                "validation_status": "unavailable"
+                "reasoning": "LLM validation disabled",
+                "validation_status": "disabled"
             }
         return detections
     
@@ -260,7 +260,8 @@ def apply_llm_validation(
 # ---------------------------------------------------------------------------
 
 
-def process_image(path: str, language: str, llm_validator: Optional[LLMValidator]) -> Dict:
+def process_image(path: str, language: str, llm_validator: Optional[LLMValidator], 
+                  ) -> Dict:
     """Process an image file using OCR + Presidio image analyzer."""
     source_type = "image"
 
@@ -425,7 +426,7 @@ def process_text_source(
 
 
 def process_file(path: str, language: str, analyze_url: str,
-                 llm_validator: Optional[LLMValidator]) -> Dict:
+                 llm_validator: Optional[LLMValidator], ) -> Dict:
     """Detect file type and route to the appropriate processing pipeline."""
     abs_path = os.path.abspath(path)
     logger.info("Processing file %s", abs_path)
@@ -433,7 +434,7 @@ def process_file(path: str, language: str, analyze_url: str,
     # Images
     if is_image(abs_path):
         return process_image(abs_path, language=language, 
-                           llm_validator=llm_validator)
+                           llm_validator=llm_validator, )
 
     # PDFs
     if is_pdf(abs_path):
@@ -559,33 +560,6 @@ def scan_path(path: str, recursive: bool, language: str, analyze_url: str,
         "results": results,
     }
 
-def initialize_llm_validator() -> Optional[LLMValidator]:
-    """
-    Initialize LLM validator with proper error handling.
-    Returns None if initialization fails (missing API key, etc.)
-    """
-    api_key = os.getenv("OPENAI_API_KEY")
-    
-    if not api_key:
-        logger.warning(
-            " OPENAI_API_KEY not found in environment. "
-            "LLM validation will be skipped. "
-            "Set OPENAI_API_KEY to enable validation."
-        )
-        return None
-    
-    try:
-        validator = LLMValidator(api_key=api_key)
-        logger.info("✓ LLM validation initialized successfully")
-        return validator
-    except Exception as exc:
-        logger.error(
-            f"Failed to initialize LLM validator: {exc}. "
-            "Continuing without LLM validation.",
-            exc_info=exc
-        )
-        return None
-
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -620,20 +594,21 @@ def parse_args() -> argparse.Namespace:
         "--output",
         help="Write JSON result to this file instead of stdout",
     )
+    parser.add_argument(
+        "--enable-llm-validation",
+        action="store_true",
+        help="Enable LLM-based validation of detections (requires Mistral API key)",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     
-    logger.info("Initializing LLM validation...")
-    llm_validator = initialize_llm_validator()
-    
-    if llm_validator is None:
-        logger.info(
-            "Proceeding with Presidio-only scanning (no LLM validation). "
-            "To enable LLM validation, set OPENAI_API_KEY environment variable."
-        )
+    llm_validator = None
+    if args.enable_llm_validation:
+        logger.info("LLM validation enabled")
+        llm_validator = LLMValidator(api_key=os.getenv("OPENAI_API_KEY"))
     
     result = scan_path(
         path=args.path,
