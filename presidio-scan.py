@@ -12,6 +12,7 @@ import requests
 
 from format_handlers import read_archive_entries, read_supported_text
 from metadata.entity_metadata import get_entity_metadata
+from llm_validator import LLMValidator 
 
 ANALYZE_URL_DEFAULT = "http://localhost:5002/analyze"
 logger = logging.getLogger(__name__)
@@ -235,11 +236,47 @@ def summarize_entities(results: List[Dict]) -> Tuple[int, List[str]]:
 
 
 # ---------------------------------------------------------------------------
+# LLM Validation Integration
+# ---------------------------------------------------------------------------
+
+
+def apply_llm_validation(
+    detections: List[Dict],
+    full_text: str,
+    llm_validator: Optional[LLMValidator],
+) -> List[Dict]:
+    """
+    Apply LLM validation to detections.
+    
+    Args:
+        detections: List of detection dictionaries
+        full_text: The full text that was analyzed
+        llm_validator: LLMValidator instance (or None if initialization failed)
+        
+    Returns:
+        List of detections with llm_validation field added
+    """
+    if llm_validator is None:
+        # Add placeholder validation status when validator unavailable
+        for detection in detections:
+            detection["llm_validation"] = {
+                "is_true_positive": None,
+                "confidence": None,
+                "reasoning": "LLM validation disabled",
+                "validation_status": "disabled"
+            }
+        return detections
+    
+    return llm_validator.validate_batch(detections, full_text)
+
+
+# ---------------------------------------------------------------------------
 # Per-file processing
 # ---------------------------------------------------------------------------
 
 
-def process_image(path: str, language: str) -> Dict:
+def process_image(path: str, language: str, llm_validator: Optional[LLMValidator], 
+                  ) -> Dict:
     """Process an image file using OCR + Presidio image analyzer."""
     source_type = "image"
 
@@ -322,6 +359,10 @@ def process_image(path: str, language: str) -> Dict:
         )
 
     enriched = enrich_results_with_metadata(analysis_results)
+    
+    # Apply LLM validation 
+    enriched = apply_llm_validation(enriched, ocr_text or "", llm_validator, )
+    
     entity_count, entities_found = summarize_entities(enriched)
 
     return {
@@ -344,6 +385,7 @@ def process_text_source(
     text: str,
     language: str,
     analyze_url: str,
+    llm_validator: Optional[LLMValidator],
     archive_path: Optional[str] = None,
 ) -> Dict:
     """Process already-extracted text (from any file type)."""
@@ -391,6 +433,9 @@ def process_text_source(
                 detection[key] = value
         detections.append(detection)
 
+    # Apply LLM validation 
+    detections = apply_llm_validation(detections, text, llm_validator )
+
     entity_count, entities_found = summarize_entities(enriched)
 
     return {
@@ -399,11 +444,12 @@ def process_text_source(
         "source_type": source_type,
         "source_type_metadata": {},
         "analysis_summary": {
-        "total_entities_found": entity_count,
-        "entities_found": entities_found,
+            "total_entities_found": entity_count,
+            "entities_found": entities_found,
         },
         "analysis_results": detections,
     }
+
 
 
 def _is_archive(path: str) -> bool:
@@ -418,14 +464,15 @@ def _format_archive_location(archive_path: str, member: str) -> str:
     return f"{archive_path}::{member}"
 
 
-def process_file(path: str, language: str, analyze_url: str):
+def process_file(path: str, language: str, analyze_url: str, llm_validator: Optional[LLMValidator]):
     """Detect file type and route to the appropriate processing pipeline."""
     abs_path = os.path.abspath(path)
     logger.info("Processing file %s", abs_path)
 
     # Images
     if is_image(abs_path):
-        return process_image(abs_path, language=language)
+        return process_image(abs_path, language=language, 
+                           llm_validator=llm_validator, )
 
     # PDFs
     if is_pdf(abs_path):
@@ -438,6 +485,7 @@ def process_file(path: str, language: str, analyze_url: str):
             text=pdf_text or "",
             language=language,
             analyze_url=analyze_url,
+            llm_validator=llm_validator,
         )
 
     # Archives with multiple members
@@ -459,6 +507,7 @@ def process_file(path: str, language: str, analyze_url: str):
                     language=language,
                     analyze_url=analyze_url,
                     archive_path=abs_path,
+                    llm_validator=llm_validator,
                 )
             )
         return archive_results
@@ -474,6 +523,8 @@ def process_file(path: str, language: str, analyze_url: str):
         text=text or "",
         language=language,
         analyze_url=analyze_url,
+        llm_validator=llm_validator,
+        
     )
 
 
@@ -482,7 +533,8 @@ def process_file(path: str, language: str, analyze_url: str):
 # ---------------------------------------------------------------------------
 
 
-def scan_path(path: str, recursive: bool, language: str, analyze_url: str) -> Dict:
+def scan_path(path: str, recursive: bool, language: str, analyze_url: str,
+              llm_validator: Optional[LLMValidator]) -> Dict:
     abs_path = os.path.abspath(path)
     timestamp = (
         datetime.now(timezone.utc)
@@ -494,8 +546,9 @@ def scan_path(path: str, recursive: bool, language: str, analyze_url: str) -> Di
     base_dir = abs_path if os.path.isdir(abs_path) else os.path.dirname(abs_path) or abs_path
 
     if os.path.isfile(abs_path):
+
         # Single file
-        res = process_file(abs_path, language=language, analyze_url=analyze_url)
+        res = process_file(abs_path, language=language, analyze_url=analyze_url, llm_validator=llm_validator)
         if isinstance(res, list):
             results.extend(res)
         else:
@@ -525,7 +578,8 @@ def scan_path(path: str, recursive: bool, language: str, analyze_url: str) -> Di
         for dirpath, _, filenames in walker:
             for name in filenames:
                 file_path = os.path.join(dirpath, name)
-                res = process_file(file_path, language=language, analyze_url=analyze_url)
+
+                res = process_file(file_path, language=language, analyze_url=analyze_url, llm_validator=llm_validator)
                 if isinstance(res, list):
                     results.extend(res)
                 else:
@@ -610,16 +664,28 @@ def parse_args() -> argparse.Namespace:
         "--output",
         help="Write JSON result to this file instead of stdout",
     )
+    parser.add_argument(
+        "--enable-llm-validation",
+        action="store_true",
+        help="Enable LLM-based validation of detections (requires Mistral API key)",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    
+    llm_validator = None
+    if args.enable_llm_validation:
+        logger.info("LLM validation enabled")
+        llm_validator = LLMValidator(api_key=os.getenv("OPENAI_API_KEY"))
+    
     result = scan_path(
         path=args.path,
         recursive=bool(args.recursive),
         language=args.language,
         analyze_url=args.analyze_url,
+        llm_validator=llm_validator,
     )
 
     json_str = json.dumps(result, indent=2)
