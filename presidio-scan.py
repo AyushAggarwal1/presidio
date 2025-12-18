@@ -385,8 +385,8 @@ def process_text_source(
     text: str,
     language: str,
     analyze_url: str,
+    llm_validator: Optional[LLMValidator],
     archive_path: Optional[str] = None,
-    llm_validator: Optional[LLMValidator]
 ) -> Dict:
     """Process already-extracted text (from any file type)."""
     source_type = infer_source_type(path)
@@ -507,6 +507,7 @@ def process_file(path: str, language: str, analyze_url: str, llm_validator: Opti
                     language=language,
                     analyze_url=analyze_url,
                     archive_path=abs_path,
+                    llm_validator=llm_validator,
                 )
             )
         return archive_results
