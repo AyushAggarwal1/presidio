@@ -2,6 +2,15 @@ requests
 PyPDF2
 Pillow
 spacy
+python-docx
+openpyxl
+python-pptx
 presidio-image-redactor
 https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl
 beautifulsoup4
+pyyaml
+xlrd
+
+boto3
+azure-identity
+azure-storage-blob

@@ -18,11 +18,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy service source trees
 COPY presidio-analyzer /app/presidio-analyzer
-COPY presidio-anonymizer /app/presidio-anonymizer
-COPY presidio-image-redactor /app/presidio-image-redactor
+
+# @ayushaggarwal1 : anonymizer and image-redactor are not used
+# COPY presidio-anonymizer /app/presidio-anonymizer
+# COPY presidio-image-redactor /app/presidio-image-redactor
 
 # Copy scanner script and its metadata/deps
 COPY metadata /app/metadata
+COPY format_handlers /app/format_handlers
 COPY presidio-scan.py /app/presidio-scan.py
 COPY requirements.txt /app/requirements.txt
 
@@ -35,13 +38,15 @@ RUN poetry install --no-root --only=main -E server \
     && poetry run python install_nlp_models.py --conf_file presidio_analyzer/conf/default.yaml
 
 # ---- Install anonymizer dependencies ----
-WORKDIR /app/presidio-anonymizer
-RUN poetry install --no-root --only=main -E server
+# @ayushaggarwal1 : anonymizer is not used in this project
+# WORKDIR /app/presidio-anonymizer
+# RUN poetry install --no-root --only=main -E server
 
-# ---- Install image-redactor dependencies ----
-WORKDIR /app/presidio-image-redactor
-RUN poetry install --no-root --only=main -E server \
-    && python -m spacy download en_core_web_lg
+# # ---- Install image-redactor dependencies ----
+# @ayushaggarwal1 : image-redactor is not used in this project
+# WORKDIR /app/presidio-image-redactor
+# RUN poetry install --no-root --only=main -E server \
+#     && python -m spacy download en_core_web_lg
 
 # ---- Install scanner dependencies (PyPDF2, Pillow, etc.) ----
 WORKDIR /app

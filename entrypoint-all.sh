@@ -17,21 +17,22 @@ start_services() {
   ANALYZER_PID=$!
   echo ANALYZER_PID=$!
 
+  # @ayushaggarwal1 : anonymizer and image-redactor are not used 
   # Anonymizer on 5001
-  (
-    cd /app/presidio-anonymizer
-    PORT=5001 WORKERS="${WORKERS:-1}" ./entrypoint.sh
-  ) &
-  ANON_PID=$!
-  echo ANON_PID=$!
+  # (
+  #   cd /app/presidio-anonymizer
+  #   PORT=5001 WORKERS="${WORKERS:-1}" ./entrypoint.sh
+  # ) &
+  # ANON_PID=$!
+  # echo ANON_PID=$!
 
-  # Image redactor on 5003
-  (
-    cd /app/presidio-image-redactor
-    PORT=5003 WORKERS="${WORKERS:-1}" ./entrypoint.sh
-  ) &
-  IMG_PID=$!
-  echo IMG_PID=$!
+  # # Image redactor on 5003
+  # (
+  #   cd /app/presidio-image-redactor
+  #   PORT=5003 WORKERS="${WORKERS:-1}" ./entrypoint.sh
+  # ) &
+  # IMG_PID=$!
+  # echo IMG_PID=$!
 }
 
 if [ "$MODE" = "services" ]; then
