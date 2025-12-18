@@ -11,3 +11,4 @@ Presidio _(Origin from Latin praesidium ‘protection, garrison’)_ helps to en
 - Metadata of Supported Entities used for enrichment [Entity Metadata](../metadata/entity_metadata.py)
 
 - Sample Output Json [sample-json](sample-schema-1.json)
+- File Extensions Supported [file-extension-supported](file-extension-supported.md)

@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import requests
 
+from format_handlers import read_archive_entries, read_supported_text
 from metadata.entity_metadata import get_entity_metadata
 
 ANALYZE_URL_DEFAULT = "http://localhost:5002/analyze"
@@ -188,6 +189,20 @@ def analyze_text(text: str, language: str, analyze_url: str) -> Dict:
         resp = requests.post(analyze_url, json=payload, timeout=30)
         resp.raise_for_status()
         return resp.json()
+    except requests.exceptions.HTTPError as exc:
+        response = getattr(exc, "response", None)
+        status = getattr(response, "status_code", "unknown")
+        body = ""
+        try:
+            body = (response.text or "").strip() if response is not None else ""
+        except Exception:  # noqa: BLE001
+            body = ""
+        logger.error(
+            "Analyzer API request failed",
+            extra={"status": status, "response_text": body[:2000]},
+            exc_info=exc,
+        )
+        return {"error": f"Analyzer API HTTP {status}: {body or exc}"}
     except requests.exceptions.RequestException as exc:
         logger.error("Analyzer API request failed", exc_info=exc)
         return {"error": f"Analyzer API request failed: {exc}"}
@@ -325,10 +340,20 @@ def process_image(path: str, language: str) -> Dict:
 
 
 def process_text_source(
-    path: str, text: str, language: str, analyze_url: str
+    path: str,
+    text: str,
+    language: str,
+    analyze_url: str,
+    archive_path: Optional[str] = None,
 ) -> Dict:
     """Process already-extracted text (from any file type)."""
     source_type = infer_source_type(path)
+    if not text or not str(text).strip():
+        logger.warning("No text content to analyze", extra={"path": path})
+        err = build_error_result(path, source_type, "No text content to analyze.")
+        if archive_path:
+            err["archive_path"] = archive_path
+        return err
     analysis = analyze_text(text, language=language, analyze_url=analyze_url)
     if isinstance(analysis, dict) and "error" in analysis:
         logger.error(
@@ -370,6 +395,7 @@ def process_text_source(
 
     return {
         "location": path,
+        # "archive_path": archive_path,
         "source_type": source_type,
         "source_type_metadata": {},
         "analysis_summary": {
@@ -380,7 +406,19 @@ def process_text_source(
     }
 
 
-def process_file(path: str, language: str, analyze_url: str) -> Dict:
+def _is_archive(path: str) -> bool:
+    lower_path = path.lower()
+    if lower_path.endswith((".tar.gz", ".tgz")):
+        return True
+    ext = os.path.splitext(lower_path)[1]
+    return ext in {".tar", ".zip"}
+
+
+def _format_archive_location(archive_path: str, member: str) -> str:
+    return f"{archive_path}::{member}"
+
+
+def process_file(path: str, language: str, analyze_url: str):
     """Detect file type and route to the appropriate processing pipeline."""
     abs_path = os.path.abspath(path)
     logger.info("Processing file %s", abs_path)
@@ -402,8 +440,31 @@ def process_file(path: str, language: str, analyze_url: str) -> Dict:
             analyze_url=analyze_url,
         )
 
-    # Fallback: treat as text
-    text, read_err = read_text_file(abs_path)
+    # Archives with multiple members
+    if _is_archive(abs_path):
+        entries, archive_err = read_archive_entries(abs_path)
+        if archive_err is not None or entries is None:
+            logger.error(
+                "Archive read failed", extra={"path": abs_path, "error": archive_err}
+            )
+            return build_error_result(abs_path, "archive", archive_err or "")
+
+        archive_results: List[Dict] = []
+        for member_name, member_text in entries:
+            member_location = _format_archive_location(abs_path, member_name)
+            archive_results.append(
+                process_text_source(
+                    member_location,
+                    text=member_text,
+                    language=language,
+                    analyze_url=analyze_url,
+                    archive_path=abs_path,
+                )
+            )
+        return archive_results
+
+    # Fallback: treat as text (supports multiple formats)
+    text, read_err = read_supported_text(abs_path)
     if read_err is not None:
         logger.error("Read text failed", extra={"path": abs_path, "error": read_err})
         return build_error_result(abs_path, infer_source_type(abs_path), read_err)
@@ -434,7 +495,11 @@ def scan_path(path: str, recursive: bool, language: str, analyze_url: str) -> Di
 
     if os.path.isfile(abs_path):
         # Single file
-        results = [process_file(abs_path, language=language, analyze_url=analyze_url)]
+        res = process_file(abs_path, language=language, analyze_url=analyze_url)
+        if isinstance(res, list):
+            results.extend(res)
+        else:
+            results.append(res)
     elif os.path.isdir(abs_path):
         if recursive:
             walker = os.walk(abs_path)
@@ -461,7 +526,10 @@ def scan_path(path: str, recursive: bool, language: str, analyze_url: str) -> Di
             for name in filenames:
                 file_path = os.path.join(dirpath, name)
                 res = process_file(file_path, language=language, analyze_url=analyze_url)
-                results.append(res)
+                if isinstance(res, list):
+                    results.extend(res)
+                else:
+                    results.append(res)
                 logger.debug("File processed", extra={"path": file_path})
     else:
         return {
