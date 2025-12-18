@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # Copy the rest of the source, including presidio-scan.py
 # COPY . /app
 COPY metadata /app/metadata
+COPY format_handlers /app/format_handlers
 COPY presidio-scan.py /app/presidio-scan.py
 
 
