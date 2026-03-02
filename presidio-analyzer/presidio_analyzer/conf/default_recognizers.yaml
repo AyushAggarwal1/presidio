@@ -14,6 +14,7 @@ recognizers:
   # For predefined:
   # - If only a recognizer name is provided, a predefined recognizer with this name and default parameters will be loaded.
   # - If a parameter isn't provided, the default one would be loaded.
+  # - Use 'class_name' to specify the Python class when using a custom 'name' for display/metadata
   # For custom:
   # - See an example configuration here: https://github.com/microsoft/presidio/blob/main/presidio-analyzer/presidio_analyzer/conf/example_recognizers.yaml
   # - Custom pattern recognizers with this configuration can be added to this file, with type: custom
@@ -50,9 +51,21 @@ recognizers:
     type: predefined
   
   - name: UsSsnRecognizer
-    supported_languages: 
+    supported_languages:
     - en
     type: predefined
+
+  - name: UsMbiRecognizer
+    supported_languages:
+    - en
+    type: predefined
+    enabled: false
+
+  - name: UsNpiRecognizer
+    supported_languages:
+    - en
+    type: predefined
+    enabled: false
 
   - name: NhsRecognizer
     supported_languages: 
@@ -64,6 +77,18 @@ recognizers:
     - en
     type: predefined
     
+
+  - name: UkPostcodeRecognizer
+    supported_languages:
+    - en
+    type: predefined
+    enabled: false
+
+  - name: UkPostcodeRecognizer
+    supported_languages:
+    - en
+    type: predefined
+    enabled: false
 
   - name: SgFinRecognizer
     supported_languages: 
@@ -91,6 +116,30 @@ recognizers:
 
   - name: AuMedicareRecognizer
     supported_languages: 
+    - en
+    type: predefined
+    enabled: false
+
+  - name: NgNinRecognizer
+    supported_languages:
+    - en
+    type: predefined
+    enabled: false
+
+  - name: NgVehicleRegistrationRecognizer
+    supported_languages:
+    - en
+    type: predefined
+    enabled: false
+
+  - name: NgNinRecognizer
+    supported_languages:
+    - en
+    type: predefined
+    enabled: false
+
+  - name: NgVehicleRegistrationRecognizer
+    supported_languages:
     - en
     type: predefined
     
@@ -159,6 +208,20 @@ recognizers:
     - pl
     type: predefined
 
+  - name: KrBrnRecognizer
+    supported_languages: 
+    - ko
+    - kr
+    type: predefined
+    enabled: false
+
+  - name: KrRrnRecognizer
+    supported_languages: 
+    - ko
+    - kr
+    type: predefined
+    enabled: false
+
   - name: KrRrnRecognizer
     supported_languages: 
     - ko
@@ -173,11 +236,30 @@ recognizers:
     type: predefined
     enabled: false
 
+  - name: KrFrnRecognizer
+    supported_languages: 
+    - ko
+    - kr
+    type: predefined
+    enabled: false
+
   - name: ThTninRecognizer
     supported_languages:
     - th
     type: predefined
     
+
+  - name: HuggingFaceNerRecognizer
+    supported_languages:
+    - en
+    type: predefined
+    enabled: false
+
+  - name: HuggingFaceNerRecognizer
+    supported_languages:
+    - en
+    type: predefined
+    enabled: false
 
   - name: CryptoRecognizer
     type: predefined
@@ -197,6 +279,9 @@ recognizers:
   - name: MedicalLicenseRecognizer
     type: predefined
 
+  - name: MacAddressRecognizer
+    type: predefined
+
   - name: PhoneRecognizer
     type: predefined
 
@@ -212,10 +297,9 @@ recognizers:
     - en
     type: predefined
 
-  - name: OllamaLangExtractRecognizer
+  - name: BasicLangExtractRecognizer
     supported_languages:
       - en
     type: predefined
     enabled: false
-    config_path: presidio-analyzer/presidio_analyzer/conf/langextract_config_ollama.yaml
-    
+    config_path: presidio_analyzer/conf/langextract_config_basic.yaml
