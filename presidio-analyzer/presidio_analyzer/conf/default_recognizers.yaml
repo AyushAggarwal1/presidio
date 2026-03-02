@@ -75,10 +75,22 @@ recognizers:
     - en
     type: predefined
 
+  - name: UkPassportRecognizer
+    supported_languages:
+    - en
+    type: predefined
+    enabled: false
+
   - name: UkPostcodeRecognizer
     supported_languages:
     - en
     type: predefined
+
+  - name: UkVehicleRegistrationRecognizer
+    supported_languages:
+    - en
+    type: predefined
+    enabled: false
 
   - name: SgFinRecognizer
     supported_languages: 
